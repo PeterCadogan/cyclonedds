@@ -41,14 +41,22 @@ configuration files by hand, this overview can be very useful. Increasing the Ve
 
 This configuration guide is broken down into three parts:
 
+<<<<<<< Updated upstream
  - A high level description of the DDSI Concepts,
  - A section that goes through the |var-project| specifics,
  - A description of all supported configuration parameters, generated from the source code.
+=======
+.. index:: Log files, Verbosity
+
+Configuration log files
+=======================
+>>>>>>> Stashed changes
 
 Users that are already familiar with the concepts of DDS can go directly to the :ref:`cyclonedds_specifics`.
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
    ddsi_concepts
    cyclonedds_specifics
