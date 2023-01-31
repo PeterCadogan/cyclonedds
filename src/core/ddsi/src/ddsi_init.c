@@ -131,6 +131,8 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
   }
   ddsi_conn_locator (gv->disc_conn_uc, &gv->loc_meta_uc);
   ddsi_conn_locator (gv->data_conn_uc, &gv->loc_default_uc);
+  *pdisc = gv->loc_meta_uc.port;
+  *pdata = gv->loc_default_uc.port;
   return MUSRET_SUCCESS;
 
 fail_data:
@@ -557,6 +559,14 @@ int ddsi_config_prep (struct ddsi_domaingv *gv, struct ddsi_cfgst *cfgst)
   {
     if (gv->config.max_participants == 0)
       gv->config.max_participants = 100;
+  }
+  else if (gv->config.many_sockets_mode == DDSI_MSM_NO_UNICAST)
+  {
+    if (gv->config.participantIndex != DDSI_PARTICIPANT_INDEX_NONE)
+    {
+      DDS_ILOG (DDS_LC_ERROR, gv->config.domainId, "ParticipantIndex and ManySocketsMode are incompatible\n");
+      goto err_config_late_error;
+    }
   }
   if (gv->config.max_queued_rexmit_bytes == 0)
   {

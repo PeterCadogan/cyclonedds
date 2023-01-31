@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2006 to 2018 ZettaScale Technology and others
+ * Copyright(c) 2022 ZettaScale Technology and others
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -9,15 +9,8 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
-#ifndef _DDS_QUERYCOND_H_
-#define _DDS_QUERYCOND_H_
 
-#if defined (__cplusplus)
-extern "C"
-{
-#endif
+#include "dds/ddsrt/bits.h"
+#include "dds/ddsrt/static_assert.h"
 
-#if defined (__cplusplus)
-}
-#endif
-#endif
+DDS_EXPORT extern inline uint32_t ddsrt_ffs32u (uint32_t x);

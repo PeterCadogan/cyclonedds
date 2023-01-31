@@ -572,10 +572,11 @@ CU_Theory ((bool same_machine, bool proxypp_has_defmc, int n_ep_uc, int n_ep_mc,
       uc[i].loc.address[15]++; // see as_default above
   }
   if (n_ep_uc > 0)
+  {
     uc[n_ep_uc-1].next = NULL;
-  plist.unicast_locators = (ddsi_locators_t){ .n = (uint32_t)n_ep_uc, .first = &uc[0], .last = &uc[n_ep_uc-1] };
-  if (plist.unicast_locators.n > 0)
+    plist.unicast_locators = (ddsi_locators_t){ .n = (uint32_t)n_ep_uc, .first = &uc[0], .last = &uc[n_ep_uc-1] };
     plist.present |= PP_UNICAST_LOCATOR;
+  }
 
   struct ddsi_locators_one mc[2] = {
     { .next = &mc[1],
@@ -595,10 +596,11 @@ CU_Theory ((bool same_machine, bool proxypp_has_defmc, int n_ep_uc, int n_ep_mc,
   };
   assert (n_ep_mc <= (int) (sizeof (mc) / sizeof (mc[0])));
   if (n_ep_mc > 0)
+  {
     mc[n_ep_mc-1].next = NULL;
-  plist.multicast_locators = (ddsi_locators_t){ .n = (uint32_t)n_ep_mc, .first = &mc[0], .last = &mc[n_ep_mc-1] };
-  if (plist.multicast_locators.n > 0)
+    plist.multicast_locators = (ddsi_locators_t){ .n = (uint32_t)n_ep_mc, .first = &mc[0], .last = &mc[n_ep_mc-1] };
     plist.present |= PP_MULTICAST_LOCATOR;
+  }
 
   {
     char buf[1024];
@@ -631,4 +633,72 @@ CU_Theory ((bool same_machine, bool proxypp_has_defmc, int n_ep_uc, int n_ep_mc,
   // not calling plist_fini: we didn't allocate anything
   ddsi_unref_addrset (as_default);
   teardown (&gv);
+}
+
+// ParticipantIndex none/auto and ManySocketsMode none/single take very different paths
+// when making sockets and selecting port numbers.  I have been bitten by that difference,
+// so better run through the set of combinations (MSM = none requires PI = none).
+CU_TheoryDataPoints(ddsc_nwpart, full_stack_init) = {
+  CU_DataPoints(const char *, "none", "auto", "none"),    // participant index
+  CU_DataPoints(const char *, "single", "single", "none") // many sockets mode
+};
+CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init)
+{
+#ifndef DDS_HAS_NETWORK_PARTITIONS
+  CU_PASS ("no network partitions in build");
+#else
+  dds_return_t rc;
+  // start up domain with default config to discover the interface name
+  // use a high value for "max auto participant index" to avoid spurious
+  // failures caused by running several tests in parallel (using a unique
+  // domain id would help, too, but where to find a unique id?)
+  dds_entity_t eh = dds_create_domain (0, NULL);
+  CU_ASSERT_FATAL (eh > 0);
+  const struct ddsi_domaingv *gv = get_domaingv (eh);
+  CU_ASSERT_FATAL (gv != NULL);
+  assert (gv != NULL);
+  // construct a configuration using this interface
+  char *config = NULL;
+  (void) ddsrt_asprintf (&config,
+    "<General>"
+    "  <Interfaces>"
+    "    <NetworkInterface name=\"%s\"/>"
+    "  </Interfaces>"
+    "</General>"
+    "<Discovery>"
+    "  <MaxAutoParticipantIndex>100</MaxAutoParticipantIndex>"
+    "  <ParticipantIndex>%s</ParticipantIndex>"
+    "</Discovery>"
+    "<Compatibility>"
+    "  <ManySocketsMode>%s</ManySocketsMode>"
+    "</Compatibility>"
+    "<Partitioning>"
+    "  <NetworkPartitions>"
+    "    <NetworkPartition name=\"part\" address=\"239.255.0.13\" interface=\"%s\"/>"
+    "  </NetworkPartitions>"
+    "</Partitioning>",
+    gv->interfaces[0].name,
+    pistr,
+    msmstr,
+    gv->interfaces[0].name);
+  rc = dds_delete (eh);
+  CU_ASSERT_FATAL (rc == 0);
+  // start up a new domain with this new configuration
+  eh = dds_create_domain (0, config);
+  ddsrt_free (config);
+  CU_ASSERT_FATAL (eh > 0);
+  gv = get_domaingv (eh);
+  CU_ASSERT_FATAL (gv != NULL);
+  assert (gv != NULL);
+  // verify that the unicast address and port number in the network partition
+  // are correct (this is slightly different from the other tests: those mock
+  // most of the code, this uses the actual code)
+  struct ddsi_config_networkpartition_listelem const * const np = gv->config.networkPartitions;
+  struct ddsi_locator const * const nploc = &np->uc_addresses->loc;
+  CU_ASSERT (memcmp (gv->interfaces[0].loc.address, nploc->address, sizeof (nploc->address)) == 0);
+  CU_ASSERT (memcmp (gv->loc_default_uc.address, nploc->address, sizeof (nploc->address)) == 0);
+  CU_ASSERT (gv->loc_default_uc.port == nploc->port);
+  rc = dds_delete (eh);
+  CU_ASSERT_FATAL (rc == 0);
+#endif
 }
